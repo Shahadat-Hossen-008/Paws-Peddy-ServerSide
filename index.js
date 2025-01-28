@@ -1,7 +1,7 @@
 require('dotenv').config()
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.port || 5000;
 app.use(cors());
@@ -26,8 +26,15 @@ async function run() {
     const petsCollections = client.db('Pet').collection('PetCollection');
     //All Pets API
     app.get('/all-pets', async(req, res)=>{
-        const pets = await petsCollections.find().toArray();
+        const pets = await petsCollections.find().sort({dateAdded:-1}).toArray();
         res.send(pets);
+    })
+    //Specific pet details
+    app.get('/all-pets/:id', async(req,res)=>{
+        const id = req.params.id;
+        const query = {_id: new ObjectId(id)};
+        const result = await petsCollections.findOne(query);
+        res.send(result);
     })
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
