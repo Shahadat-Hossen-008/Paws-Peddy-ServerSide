@@ -26,7 +26,15 @@ async function run() {
     const petsCollections = client.db('Pet').collection('PetCollection');
     //All Pets API
     app.get('/all-pets', async(req, res)=>{
-        const pets = await petsCollections.find().sort({dateAdded:-1}).toArray();
+      const { query, category } = req.query;
+      let option ={}
+      if(query){
+        option.name= { $regex: query, $options: 'i' };
+      }
+      if(category){
+        option.category= category;
+      }
+        const pets = await petsCollections.find(option).sort({dateAdded:-1}).toArray();
         res.send(pets);
     })
     //Specific pet details
