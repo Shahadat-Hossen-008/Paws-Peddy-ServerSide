@@ -24,6 +24,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const petsCollections = client.db('Pet').collection('PetCollection');
+    const adoptPetCollection = client.db('Pet').collection('AdoptPet')
     //All Pets API
     app.get('/all-pets', async(req, res)=>{
       const { query, category } = req.query;
@@ -43,6 +44,13 @@ async function run() {
         const query = {_id: new ObjectId(id)};
         const result = await petsCollections.findOne(query);
         res.send(result);
+    })
+
+    //pet adoption post apis
+    app.post('/adopt-pet', async(req, res)=>{
+      const adoptPet = req.body;
+      const result  = await adoptPetCollection.insertOne(adoptPet);
+      res.send(result);
     })
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
