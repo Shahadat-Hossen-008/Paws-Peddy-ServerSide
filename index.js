@@ -25,6 +25,7 @@ async function run() {
   try {
     const petsCollections = client.db('Pet').collection('PetCollection');
     const adoptPetCollection = client.db('Pet').collection('AdoptPet')
+    const donationCollection = client.db('Pet').collection('Donations')
     //All Pets API
     app.get('/all-pets', async(req, res)=>{
       const { query, category } = req.query;
@@ -51,6 +52,12 @@ async function run() {
       const adoptPet = req.body;
       const result  = await adoptPetCollection.insertOne(adoptPet);
       res.send(result);
+    })
+
+    //donation pets apis 
+    app.get('/donation-campaign', async(req, res)=>{
+      const pets = await donationCollection.find().sort({campaignCreatedDateTime: -1}).toArray();
+      res.send(pets);
     })
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
