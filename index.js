@@ -46,7 +46,12 @@ async function run() {
         const result = await petsCollections.findOne(query);
         res.send(result);
     })
-
+     app.delete('/all-pets/:id',async(req,res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)};
+      const result = await petsCollections.deleteOne(query);
+      res.send(result);
+     })
     //pet adoption post apis
     app.post('/adopt-pet', async(req, res)=>{
       const adoptPet = req.body;
@@ -58,6 +63,12 @@ async function run() {
     app.get('/donation-campaign', async(req, res)=>{
       const pets = await donationCollection.find().sort({campaignCreatedDateTime: -1}).toArray();
       res.send(pets);
+    })
+    app.get('/donation-campaign/:id', async(req, res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)};
+      const result = await donationCollection.findOne(query);
+      res.send(result)
     })
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
