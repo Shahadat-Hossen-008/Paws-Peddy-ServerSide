@@ -23,9 +23,27 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
+    const userCollections = client.db('Pet').collection('User')
     const petsCollections = client.db('Pet').collection('PetCollection');
     const adoptPetCollection = client.db('Pet').collection('AdoptPet')
     const donationCollection = client.db('Pet').collection('Donations')
+
+    //user related apis
+    app.get('/users',async(req, res)=>{
+      const result = await userCollections.find().toArray();
+      res.send(result);
+    })
+    app.post('/users',async(req, res)=>{
+      const user = req.body;
+      //check user already exist
+      const query = {email : user.email }
+      const existingUser = await userCollections.findOne(query);
+      if(existingUser){
+        return res.send({message: 'User already exist', insertedId: null})
+      }
+      const result = await userCollections.insertOne(user);
+      res.send(result);
+    })
     //All Pets API
     app.get('/all-pets', async(req, res)=>{
       const { query, category } = req.query;
@@ -55,6 +73,13 @@ async function run() {
     //pet adoption post apis
     app.post('/adopt-pet', async(req, res)=>{
       const adoptPet = req.body;
+       // if a user already adopt this pet
+       const query={userEmail: adoptPet.userEmail, petId: adoptPet.petId}
+       const alreadyExist = await adoptPetCollection.findOne(query);
+       console.log("If already exist", alreadyExist);
+       
+       if(alreadyExist)return res.status(400).send('You already adopt this pet')
+        
       const result  = await adoptPetCollection.insertOne(adoptPet);
       res.send(result);
     })
