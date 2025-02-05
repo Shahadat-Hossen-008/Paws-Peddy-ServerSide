@@ -2,6 +2,7 @@ require('dotenv').config()
 const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+var jwt = require('jsonwebtoken');
 const app = express();
 const port = process.env.port || 5000;
 app.use(cors());
@@ -27,11 +28,48 @@ async function run() {
     const petsCollections = client.db('Pet').collection('PetCollection');
     const adoptPetCollection = client.db('Pet').collection('AdoptPet')
     const donationCollection = client.db('Pet').collection('Donations')
-
+    //jwt related apis
+    app.post('/jwt',async(req,res)=>{
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET,{
+        expiresIn:'1h'
+      });
+      res.send({token})
+    })
+    //middleware
+    const verifyToken = (req,res,next)=>{
+      if(!req.headers.authorization){
+        return res.status(401).send({message:"Forbidden access"})
+      }
+      const token = req.headers.authorization.split(' ')[1];
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET,(err, decoded)=>{
+        if(err){
+          return res.status(401).send({message:"Forbidden access"})
+        }
+        req.decoded = decoded;
+        
+        next()
+      })
+      
+    }
     //user related apis
-    app.get('/users',async(req, res)=>{
+    app.get('/users', verifyToken, async(req, res)=>{
+      
       const result = await userCollections.find().toArray();
       res.send(result);
+    })
+    app.get('/users/admin/:email', verifyToken, async(req, res)=>{
+      const email = req.params.email;
+      if(email !== req.decoded.email){
+        return res.status(403).send({message: "Unauthorized access"})
+      }
+      const query = {email: email}
+      const user = await userCollections.findOne(query)
+      let admin = false;
+      if (user){
+        admin = user?.role === "Admin"
+      }
+      res.send({admin})
     })
     app.post('/users',async(req, res)=>{
       const user = req.body;
@@ -44,6 +82,18 @@ async function run() {
       const result = await userCollections.insertOne(user);
       res.send(result);
     })
+  
+  app.patch('/users/admin/:id',async(req, res)=>{
+    const id = req.params.id;
+    const filter = {_id: new ObjectId(id)};
+    const updatedDoc={
+      $set:{
+        role: "Admin"
+      }
+    }
+    const result = await userCollections.updateOne(filter, updatedDoc);
+    res.send(result);
+  })
     //All Pets API
     app.get('/all-pets', async(req, res)=>{
       const { query, category } = req.query;
