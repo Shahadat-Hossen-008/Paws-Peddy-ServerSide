@@ -37,23 +37,34 @@ async function run() {
       res.send({token})
     })
     //middleware
+    //verify token
     const verifyToken = (req,res,next)=>{
       if(!req.headers.authorization){
-        return res.status(401).send({message:"Forbidden access"})
+        return res.status(401).send({message:"Unauthorized access"})
       }
       const token = req.headers.authorization.split(' ')[1];
       jwt.verify(token, process.env.ACCESS_TOKEN_SECRET,(err, decoded)=>{
         if(err){
-          return res.status(401).send({message:"Forbidden access"})
+          return res.status(401).send({message:"Unauthorized access"})
         }
         req.decoded = decoded;
         
         next()
       })
-      
+    }
+    //verify Admin
+    const verifyAdmin = async(req, res, next)=>{
+      const email = req.decoded.email;
+      const query = {email: email};
+      const user = await userCollections.findOne(query);
+      const isAdmin = user?.role ==="Admin"
+      if(!isAdmin){
+        return res.status(403).send({message: "Forbidden access"})
+      }
+      next();
     }
     //user related apis
-    app.get('/users', verifyToken, async(req, res)=>{
+    app.get('/users', verifyToken, verifyAdmin, async(req, res)=>{
       
       const result = await userCollections.find().toArray();
       res.send(result);
@@ -61,7 +72,7 @@ async function run() {
     app.get('/users/admin/:email', verifyToken, async(req, res)=>{
       const email = req.params.email;
       if(email !== req.decoded.email){
-        return res.status(403).send({message: "Unauthorized access"})
+        return res.status(403).send({message: "Forbidden access"})
       }
       const query = {email: email}
       const user = await userCollections.findOne(query)
@@ -83,7 +94,7 @@ async function run() {
       res.send(result);
     })
   
-  app.patch('/users/admin/:id',async(req, res)=>{
+  app.patch('/users/admin/:id',verifyToken, verifyAdmin, async(req, res)=>{
     const id = req.params.id;
     const filter = {_id: new ObjectId(id)};
     const updatedDoc={
@@ -107,13 +118,50 @@ async function run() {
         const pets = await petsCollections.find(option).sort({dateAdded:-1}).toArray();
         res.send(pets);
     })
-    //Specific pet details
-    app.get('/all-pets/:id', async(req,res)=>{
-        const id = req.params.id;
-        const query = {_id: new ObjectId(id)};
-        const result = await petsCollections.findOne(query);
-        res.send(result);
+     //Specific pet details
+     app.get('/all-pets/:id', async(req,res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)};
+      const result = await petsCollections.findOne(query);
+      res.send(result);
+  })
+  // specific user pet apis
+  app.get('/all-pets/email/:email',async(req, res)=>{
+    const email = req.params.email;
+    const filter = {user_Email : email};
+    const result = await petsCollections.find(filter).toArray();
+    res.send(result);
+  })
+    //create pets api 
+    app.post('/all-pets', async(req, res)=>{
+      const pet = req.body;
+      const result = await petsCollections.insertOne(pet);
+      res.send(result)
     })
+    //update pet information
+    app.put('/all-pets/petId/:id', async(req, res)=>{
+      const id = req.params.id;
+      const updatePetInfo = req.body;
+      const query= {_id: new ObjectId(id)}
+      const updatedDoc = {
+        $set: updatePetInfo
+      }
+      const options = {upsert: true};
+      const result = await petsCollections.updateOne(query, updatedDoc, options);
+      res.send(result);
+    })
+   //make pet adopt apis
+  app.patch('/all-pets/:id',verifyToken, async(req, res)=>{
+    const id = req.params.id;
+    const query = {_id: new ObjectId(id)}
+    const updatedDoc = {
+      $set:{
+        adopted: true
+      }
+    }
+    const result = await petsCollections.updateOne(query, updatedDoc);
+    res.send(result);
+  })
      app.delete('/all-pets/:id',async(req,res)=>{
       const id = req.params.id;
       const query = {_id: new ObjectId(id)};
@@ -144,6 +192,12 @@ async function run() {
       const query = {_id: new ObjectId(id)};
       const result = await donationCollection.findOne(query);
       res.send(result)
+    })
+    // make donation post apis
+    app.post('/donation-campaign', async(req, res)=>{
+      const donationCampaign = req.body;
+      const result = await donationCollection.insertOne(donationCampaign);
+      res.send(result);
     })
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
