@@ -168,6 +168,13 @@ async function run() {
       const result = await petsCollections.deleteOne(query);
       res.send(result);
      })
+    //pet adoption get apis
+    app.get('/adopt-pet/:email', async(req, res)=>{
+      const email = req.params.email;
+     const filter = {petOwnerEmail : email};
+      const adoptPet = await adoptPetCollection.find(filter).toArray()
+      res.send(adoptPet);
+    })
     //pet adoption post apis
     app.post('/adopt-pet', async(req, res)=>{
       const adoptPet = req.body;
