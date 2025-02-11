@@ -168,7 +168,7 @@ async function run() {
       const result = await petsCollections.deleteOne(query);
       res.send(result);
      })
-    //pet adoption get apis
+    //pet adoption specific get apis
     app.get('/adopt-pet/:email', async(req, res)=>{
       const email = req.params.email;
      const filter = {petOwnerEmail : email};
@@ -181,14 +181,45 @@ async function run() {
        // if a user already adopt this pet
        const query={userEmail: adoptPet.userEmail, petId: adoptPet.petId}
        const alreadyExist = await adoptPetCollection.findOne(query);
-       console.log("If already exist", alreadyExist);
-       
        if(alreadyExist)return res.status(400).send('You already adopt this pet')
         
       const result  = await adoptPetCollection.insertOne(adoptPet);
       res.send(result);
     })
+    // pet adoption request accept or reject
+    app.patch('/adopt-pet/:id',  async (req, res) => {
+      const id = req.params.id;
+      const { adopted } = req.body;
+      const query = { _id: new ObjectId(id) };
+      const filter = {petId : id}
+      const updatedDoc = {
+        $set: {
+          adopted: adopted 
+        }
+      };
+      let adoptUpdate;
 
+      if (adopted) {
+        adoptUpdate = {
+          $set: {
+            adopted: 'Adopted'
+          }
+        };
+      } else {
+        adoptUpdate = {
+          $set: {
+            adopted: 'Not Adopted'
+          }
+        };
+      }
+    
+      const result = await petsCollections.updateOne(query, updatedDoc);
+      const final = await adoptPetCollection.updateOne(filter, adoptUpdate)
+      res.send({
+        petsCollectionResult: result,
+        adoptPetCollectionResult: final
+      });
+    });
     //donation pets apis 
     app.get('/donation-campaign', async(req, res)=>{
       const pets = await donationCollection.find().sort({campaignCreatedDateTime: -1}).toArray();
