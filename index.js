@@ -26,6 +26,7 @@ async function run() {
     const petsCollections = client.db("Pet").collection("PetCollection");
     const adoptPetCollection = client.db("Pet").collection("AdoptPet");
     const donationCollection = client.db("Pet").collection("Donations");
+    const paymentCollection = client.db("Pet").collection("Payments");
     //jwt related apis
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -265,7 +266,18 @@ async function run() {
         clientSecret: paymentIntent.client_secret,
       });
     });
-  
+  //  payment info post apis
+  app.post('/payments', async(req, res)=>{
+    const payment = req.body;
+    // accumulate donated amount
+    const filter = {_id : new ObjectId(payment.petId)}
+    const update={
+      $inc:{donatedAmount: payment.donationAmount}
+    }
+    const result = await paymentCollection.insertOne(payment);
+    const updateDonatedAmount = await donationCollection.updateOne(filter, update)
+    res.send(result);
+  })
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
     // Send a ping to confirm a successful connection
