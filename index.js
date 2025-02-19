@@ -245,13 +245,46 @@ async function run() {
       const result = await donationCollection.findOne(query);
       res.send(result);
     });
+    //specific donation apis
+    app.get("/donation-user-campaign/:email", async (req, res) => {
+      const email = req.params.email;
+      const filter = { userEmail: email };
+      const donator = await donationCollection.find(filter).toArray();
+      res.send(donator);
+    });
     // make donation post apis
     app.post("/donation-campaign", async (req, res) => {
       const donationCampaign = req.body;
       const result = await donationCollection.insertOne(donationCampaign);
       res.send(result);
     });
-
+    //update donation pet information
+    app.put("/donation-campaign/petId/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const updatePetInfo = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: updatePetInfo,
+      };
+      const options = { upsert: true };
+      const result = await donationCollection.updateOne(
+        query,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
+    app.patch("/donation-campaign/pause/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          pause: true,
+        },
+      };
+      const result = await donationCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
     //payment intent
     app.post("/create-payment-intent",  async (req, res) => {
       const {amount} = req.body;
@@ -265,7 +298,22 @@ async function run() {
       res.send({
         clientSecret: paymentIntent.client_secret,
       });
+      
     });
+    //payment info pet specific
+    app.get('/payment/petId/:id', async(req, res)=>{
+      const id = req.params.id;
+      const filter = { petId: id   }
+      const donator = await paymentCollection.find(filter).toArray();
+      res.send(donator);
+    })
+    //payment info get apis
+    app.get('/payment/:email', async(req, res)=>{
+      const email = req.params.email;
+      const filter = { donatorEmail: email }
+      const donator = await paymentCollection.find(filter).toArray();
+      res.send(donator);
+    })
   //  payment info post apis
   app.post('/payments', async(req, res)=>{
     const payment = req.body;
