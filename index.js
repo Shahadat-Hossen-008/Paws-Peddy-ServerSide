@@ -326,6 +326,22 @@ async function run() {
     const updateDonatedAmount = await donationCollection.updateOne(filter, update)
     res.send(result);
   })
+  //Refund payment
+  app.patch('/payments/Id/:id', verifyToken, async(req, res)=>{
+    const petId = req.params.id;
+    const { donationAmount, userId } = req.body;
+    const filter = {_id : new ObjectId(petId)}
+    const query = {_id: new ObjectId(userId), petId: petId }
+    const update={
+      $inc:{donatedAmount: -donationAmount}
+    }
+    const updateInfo={
+      $inc:{donationAmount: -donationAmount}
+    } 
+    const updatedDoc = await paymentCollection.updateOne(query, updateInfo)
+    const result = await donationCollection.updateOne(filter, update)
+    res.send({updatedDoc,result})
+  })
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
     // Send a ping to confirm a successful connection
