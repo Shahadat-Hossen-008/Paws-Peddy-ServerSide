@@ -285,6 +285,36 @@ async function run() {
       const result = await donationCollection.updateOne(query, updatedDoc);
       res.send(result);
     });
+    //admin only
+    app.patch("/donation-campaign/AdminPause/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const { pause } = req.body;
+      const query = { _id: new ObjectId(id) };
+      let updatePetDonationPause;
+      if(!pause){
+        updatePetDonationPause = {
+          $set: {
+            pause: true,
+          },
+        };
+      }else{
+        updatePetDonationPause = {
+          $set: {
+            pause: false,
+          },
+        };
+      }
+     
+      const result = await donationCollection.updateOne(query, updatePetDonationPause);
+      res.send(result);
+    })
+    //delete donation campaign
+    app.delete("/donation-campaign/:id", verifyToken,verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await donationCollection.deleteOne(query);
+      res.send(result);
+    });
     //payment intent
     app.post("/create-payment-intent",  async (req, res) => {
       const {amount} = req.body;
