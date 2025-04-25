@@ -30,9 +30,14 @@ async function run() {
     //jwt related apis
     app.post("/jwt", async (req, res) => {
       const user = req.body;
+      const existingUser = await userCollections.findOne({ email: user.email });
+      if (existingUser?.role === "Ban") {
+        return res.status(403).send({ message: "You are banned from logging in" });
+      }
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "1h",
       });
+     
       res.send({ token });
     });
     //middleware
@@ -85,7 +90,10 @@ async function run() {
       //check user already exist
       const query = { email: user.email };
       const existingUser = await userCollections.findOne(query);
-      if (existingUser) {
+      // if(user?.role === "Ban"){
+      //   return res.send({ message: "You are banned from logging in", insertedId: null });
+      // }
+      if (existingUser ) {
         return res.send({ message: "User already exist", insertedId: null });
       }
       const result = await userCollections.insertOne(user);
@@ -108,9 +116,40 @@ async function run() {
         res.send(result);
       }
     );
+    app.patch("/users/ban/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          role: "Ban",
+        },
+      };
+      const result = await userCollections.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+    
+    // UnBan a user
+    app.patch("/users/un-ban/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          role: "User",
+        },
+      };
+      const result = await userCollections.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+    //top 5 best pet api
+    app.get('/all-limited-pet', async(req, res)=>{
+      const pets = await petsCollections.find().sort({ dateAdded: -1}).limit(5).toArray();
+      res.send(pets);
+    })
     //All Pets API
     app.get("/all-pets", async (req, res) => {
-      const { query, category } = req.query;
+      let { query, category, page, limit } = req.query;
+      page = parseInt(page)
+      limit = parseInt(limit)
       let option = {};
       if (query) {
         option.name = { $regex: query, $options: "i" };
@@ -120,7 +159,9 @@ async function run() {
       }
       const pets = await petsCollections
         .find(option)
-        .sort({ dateAdded: -1 })
+        .sort({ dateAdded: -1, _id: 1 })
+        .skip((page-1)*limit)
+        .limit(limit)
         .toArray();
       res.send(pets);
     });
@@ -132,8 +173,11 @@ async function run() {
       res.send(result);
     });
     // specific user pet apis
-    app.get("/all-pets/email/:email", verifyToken, async (req, res) => {
+    app.get("/all-pets-email/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
+      if(req.params.email !== req.decoded.email){
+        return res.status(403).send({message: 'forbidden access'})
+      }
       const filter = { user_Email: email };
       const result = await petsCollections.find(filter).toArray();
       res.send(result);
@@ -179,8 +223,11 @@ async function run() {
       res.send(result);
     });
     //pet adoption specific get apis
-    app.get("/adopt-pet/:email", async (req, res) => {
+    app.get("/adopt-pet/:email",verifyToken, async (req, res) => {
       const email = req.params.email;
+      if(req.params.email !== req.decoded.email){
+        return res.status(403).send({message: 'forbidden access'})
+      }
       const filter = { petOwnerEmail: email };
       const adoptPet = await adoptPetCollection.find(filter).toArray();
       res.send(adoptPet);
@@ -231,6 +278,11 @@ async function run() {
         adoptPetCollectionResult: final,
       });
     });
+    //top 5 donation pet api
+    app.get('/donation-limited-pet', async(req, res)=>{
+      const pets = await donationCollection.find().sort({campaignCreatedDateTime: -1}).limit(5).toArray();
+      res.send(pets);
+    })
     //donation pets apis
     app.get("/donation-campaign", async (req, res) => {
       const pets = await donationCollection
@@ -246,8 +298,11 @@ async function run() {
       res.send(result);
     });
     //specific donation apis
-    app.get("/donation-user-campaign/:email", async (req, res) => {
+    app.get("/donation-user-campaign/:email",verifyToken, async (req, res) => {
       const email = req.params.email;
+      if(req.params.email !== req.decoded.email){
+        return res.status(403).send({message: 'forbidden access'})
+      }
       const filter = { userEmail: email };
       const donator = await donationCollection.find(filter).toArray();
       res.send(donator);
@@ -338,8 +393,11 @@ async function run() {
       res.send(donator);
     })
     //payment info get apis
-    app.get('/payment/:email', async(req, res)=>{
+    app.get('/payment/:email',verifyToken, async(req, res)=>{
       const email = req.params.email;
+      if(req.params.email !== req.decoded.email){
+        return res.status(403).send({message: 'forbidden access'})
+      }
       const filter = { donatorEmail: email }
       const donator = await paymentCollection.find(filter).toArray();
       res.send(donator);
@@ -362,6 +420,7 @@ async function run() {
     const { donationAmount, userId } = req.body;
     const filter = {_id : new ObjectId(petId)}
     const query = {_id: new ObjectId(userId), petId: petId }
+    //Reduce from donated amount
     const update={
       $inc:{donatedAmount: -donationAmount}
     }
@@ -373,12 +432,12 @@ async function run() {
     res.send({updatedDoc,result})
   })
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
@@ -391,5 +450,5 @@ app.get("/", (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`This port is running ${port}`);
+  // console.log(`This port is running ${port}`);
 });
